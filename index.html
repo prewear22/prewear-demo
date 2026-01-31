@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PreWear Final Demo (Detailed Report & GIF)</title>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+
+    <style>
+        /* 기본 설정 */
+        body { margin: 0; font-family: 'Pretendard', sans-serif; background: #f8f9fa; color: #333; }
+        * { box-sizing: border-box; }
+        
+        header { background: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .logo { font-weight: 800; font-size: 22px; letter-spacing: -1px; }
+        nav span { margin-right: 25px; font-weight: 600; font-size: 15px; cursor: pointer; }
+        
+        .product-container { display: flex; max-width: 1200px; margin: 50px auto; background: white; padding: 0; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); overflow: hidden; }
+        .product-image-area { flex: 1; position: relative; background: #f0f0f0; min-height: 700px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        #main-image { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s; }
+        
+        /* 라벨 */
+        #fit-label { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: white; padding: 12px 25px; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); animation: popUp 0.3s; z-index: 5; }
+        #fit-label.critical { background: #7f1d1d; } #fit-label.warning { background: #ef4444; } #fit-label.success { background: #10b981; } #fit-label.repaired { background: #7c3aed; }
+        @keyframes popUp { from { transform: translate(-50%, 30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+        /* 스캔 효과 */
+        #scan-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .scan-bar { width: 100%; height: 4px; background: #00ffcc; box-shadow: 0 0 20px #00ffcc; animation: scanMove 1.5s infinite ease-in-out; position: absolute; top: 0; }
+        @keyframes scanMove { 0% { top: 0%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+
+        /* 우측 정보 */
+        .product-info { flex: 0.8; padding: 50px; display: flex; flex-direction: column; justify-content: center; }
+        .brand { font-size: 14px; color: #666; font-weight: 600; margin-bottom: 8px; }
+        .product-name { font-size: 28px; margin: 0 0 20px 0; letter-spacing: -0.5px; line-height: 1.3; font-weight: 800; }
+        .price { font-size: 24px; font-weight: 700; margin-bottom: 40px; }
+        .size-select { display: flex; gap: 10px; margin-bottom: 30px; }
+        .size-btn { width: 60px; height: 60px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 8px; font-size: 16px; transition: 0.2s; font-weight: 500; }
+        .size-btn.selected { border: 2px solid #111; font-weight: 800; background: #fff; color: #000; }
+        .prewear-btn { width: 100%; padding: 18px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3); }
+        .actions { display: flex; gap: 10px; margin-top: 20px; }
+        .actions button { flex: 1; padding: 18px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 6px; border:none; }
+        .cart-btn { background: #eee; color: #333; } .buy-btn { background: #111; color: white; }
+
+        /* 모달 공통 */
+        .hidden { display: none !important; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .modal-content.wide-modal { background: white; width: 1200px; height: 95vh; border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; animation: slideUp 0.4s ease-out; }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { background: #111; color: white; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .close-btn { cursor: pointer; font-size: 30px; opacity: 0.8; color: white; background: none; border: none;}
+        .modal-layout { display: flex; flex: 1; overflow: hidden; }
+        
+        /* 아바타 뷰 (좌우) */
+        .avatar-view { flex: 1.2; background: #18181b; padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .dual-avatar-container { display: flex; gap: 20px; width: 100%; height: 100%; justify-content: center; }
+        .single-avatar-box { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
+        .avatar-label { color: #aaa; font-size: 13px; margin-bottom: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .avatar-img { width: 100%; height: 100%; object-fit: contain; border-radius: 12px; background: rgba(255,255,255,0.05); }
+        
+        /* ★ 리포트 뷰 (상세 스타일 복구) ★ */
+        .report-view { flex: 0.8; padding: 40px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; gap: 25px; }
+        .section h4 { margin: 0 0 15px 0; font-size: 16px; color: #111; font-weight: 800; border-left: 5px solid #111; padding-left: 12px; }
+        
+        .score-box { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+        .score-num { font-size: 36px; font-weight: 900; letter-spacing: -1px; }
+        .score-badge { padding: 5px 12px; border-radius: 6px; font-size: 14px; font-weight: bold; }
+        .score-box.critical .score-num { color: #991b1b; } .score-box.critical .score-badge { background: #7f1d1d; color: #fff; }
+        .score-box.warning .score-num { color: #ef4444; } .score-box.warning .score-badge { background: #fee2e2; color: #991b1b; }
+        .score-box.success .score-num { color: #059669; } .score-box.success .score-badge { background: #d1fae5; color: #065f46; }
+        
+        .ai-comment { font-size: 14px; color: #444; background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 0; line-height: 1.6; border: 1px solid #e9ecef; }
+        
+        .detail-list li { padding: 15px; border: 1px solid #eee; margin-bottom: 10px; border-radius: 8px; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+        .detail-list li.critical { border-left: 5px solid #991b1b; background: #fef2f2; }
+        .detail-list li.red { border-left: 5px solid #ef4444; background: #fff5f5; }
+        .detail-list li.green { border-left: 5px solid #10b981; background: #f0fdf4; }
+        .part-name { font-weight: bold; font-size: 15px; }
+        .part-val { font-size: 13px; color: #666; font-family: monospace; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; }
+        .part-desc { font-size: 13px; color: #555; }
+
+        .guide-box, .critical-box, .warning-box, .safe-box { padding: 15px; border-radius: 8px; font-size: 14px; line-height: 1.6; }
+        .guide-box { background: #f8f9fa; border: 1px solid #e9ecef; }
+        .critical-box { background: #450a0a; border: 1px solid #7f1d1d; color: #fecaca; }
+        .warning-box { background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; }
+        .safe-box { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+        
+        .ai-recommendation { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc; font-weight: bold; color: #2563eb; }
+
+        .repair-btn, .durability-btn { width: 100%; padding: 15px; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+        .repair-btn { background: #7c3aed; } .repair-btn:hover { background: #6d28d9; }
+        .durability-btn { background: #f59e0b; } .durability-btn:hover { background: #d97706; }
+
+        .report-size-control { margin-top: 20px; display: flex; gap: 10px; background: #f1f5f9; padding: 10px; border-radius: 12px; }
+        .rs-btn { flex: 1; padding: 15px; border: none; background: white; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.2s; color: #64748b; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .rs-btn:hover { background: #e2e8f0; color: #333; }
+        .rs-btn.active { background: #111; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+
+        .view3d-popup { width: 900px; height: 850px; background: #222; border-radius: 12px; overflow: hidden; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: space-between; box-shadow: 0 30px 60px rgba(0,0,0,0.5); }
+        model-viewer { width: 100%; flex: 1; background-color: #222; }
+        .view3d-overlay { position: relative; bottom: auto; margin-bottom: 30px; color: rgba(255,255,255,0.6); font-size: 14px; pointer-events: none; background: transparent; padding: 0; }
+        .close-3d-btn { position: absolute; top: 20px; right: 20px; color: white; font-size: 30px; background: none; border: none; cursor: pointer; z-index: 10; }
+        .view3d-controls { position: relative; bottom: auto; margin: 20px 0; display: flex; gap: 15px; z-index: 10; }
+        .control-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 12px 30px; border-radius: 30px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .control-btn:hover { background: rgba(255,255,255,0.3); }
+        .control-btn.active { background: #2563eb; border-color: #2563eb; }
+        #btn-3d-repair { background: #7c3aed; border-color: #7c3aed; display: none; } 
+
+        .durability-popup { width: 1100px; height: 95vh; background: white; padding: 40px; border-radius: 16px; text-align: center; position: relative; overflow-y: auto; display: flex; flex-direction: column; }
+        .durability-options { display: flex; gap: 20px; margin-top: 30px; justify-content: center; flex: 1; align-items: center; }
+        .action-btn { width: 200px; height: 200px; border: 2px solid #eee; background: white; border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; font-size: 18px; font-weight: bold; transition: 0.2s; }
+        .action-btn:hover { background: #f8f9fa; transform: translateY(-5px); border-color: #333; }
+        .action-icon { font-size: 50px; }
+
+        .sim-split-container { display: none; margin-top: 20px; width: 100%; height: 600px; gap: 20px; }
+        .sim-video-box { flex: 1; background: #000; border-radius: 12px; overflow: hidden; position: relative; }
+        .sim-video-box img { width: 100%; height: 100%; object-fit: cover; }
+        .sim-label { position: absolute; top: 15px; left: 15px; color: white; background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 6px; font-size: 14px; font-weight: bold; z-index: 5; }
+        
+        .comparison-view { display: flex; gap: 30px; margin-top: 30px; width: 100%; height: auto; min-height: 600px; }
+        .comp-box { flex: 1; display: flex; flex-direction: column; background: #f8f9fa; border-radius: 12px; overflow: hidden; border: 1px solid #ddd; }
+        .comp-label { background: #333; color: white; padding: 15px; font-size: 16px; font-weight: bold; flex-shrink: 0; }
+        .comp-img { flex: 1; width: 100%; height: 100%; object-fit: contain; background: #fff; }
+        
+        .clickable-box { cursor: pointer; transition: 0.2s; border: 2px solid transparent; border-radius: 8px; position: relative; }
+        .clickable-box:hover { border-color: #2563eb; transform: scale(1.01); }
+        .zoom-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: white; opacity: 0; transition: 0.2s; text-shadow: 0 2px 10px rgba(0,0,0,0.5); pointer-events: none; }
+        .clickable-box:hover .zoom-icon { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">M-SHOP</div>
+        <nav><span>NEW</span><span>BEST</span><span>MEN</span></nav>
+        <div class="user-icon">MY</div>
+    </header>
+
+    <main class="product-container">
+        <div class="product-image-area">
+            <img src="" id="main-image" alt="상품이미지">
+            <div id="scan-overlay" class="hidden"><div class="scan-bar"></div></div>
+            <div id="fit-label" class="hidden"></div>
+        </div>
+
+        <div class="product-info">
+            <h2 class="brand">PreWear Signature</h2>
+            <h1 class="product-name">와이드 핏 밴딩 슬랙스 (Black)</h1>
+            <p class="price">59,000원</p>
+            <div class="option-group">
+                <p class="option-title">SIZE</p>
+                <div class="size-select">
+                    <button class="size-btn" data-size="S">S</button>
+                    <button class="size-btn selected" data-size="M">M</button>
+                    <button class="size-btn" data-size="L">L</button>
+                </div>
+            </div>
+            <div class="prewear-section">
+                <button id="prewear-btn" class="prewear-btn"><span>✨</span> PreWear로 입어보기</button>
+                <p style="text-align:center; font-size:13px; color:#666; margin-top:12px;">내 3D 아바타로 핏과 수명을 예측합니다.</p>
+            </div>
+            <div class="actions">
+                <button class="cart-btn">장바구니</button>
+                <button class="buy-btn">구매하기</button>
+            </div>
+        </div>
+    </main>
+
+    <div id="result-modal" class="modal hidden">
+        <div class="modal-content wide-modal">
+            <div class="modal-header">
+                <h3>PreWear 3D FIT REPORT™</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-layout">
+                <div class="avatar-view">
+                    <div class="dual-avatar-container">
+                        <div class="single-avatar-box clickable-box" id="click-3d-trigger">
+                            <span class="avatar-label">Real Fit (Click to 3D View)</span>
+                            <img src="" id="avatar-real-img" class="avatar-img" alt="실사 아바타">
+                            <div class="zoom-icon">🔄 3D</div>
+                        </div>
+                        <div class="single-avatar-box">
+                            <span class="avatar-label">Strain Map (Analysis)</span>
+                            <img src="" id="avatar-heat-img" class="avatar-img" alt="히트맵 아바타">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="report-view">
+                    <div class="section">
+                        <h4>[1. 핏 스코어]</h4>
+                        <div class="score-box" id="score-box"><span class="score-num" id="score-num">--</span><span class="score-badge" id="score-badge">--</span></div>
+                        <p class="ai-comment" id="score-comment">--</p>
+                    </div>
+                    <div class="section">
+                        <h4>[2. 부위별 분석]</h4>
+                        <ul class="detail-list" id="detail-list"></ul>
+                    </div>
+                    <div class="section">
+                        <h4>[3. 수선 가이드]</h4>
+                        <div id="guide-box"></div>
+                        <button id="repair-preview-btn" class="repair-btn" style="display:none;"><span>✂️</span> 2.5cm 수선 후 핏 미리보기</button>
+                    </div>
+                    <div class="section">
+                        <h4>[4. 내구도 예측]</h4>
+                        <p id="durability-count" style="font-weight:bold; margin-bottom:5px;">--</p>
+                        <div id="durability-box"></div>
+                        <button id="durability-test-btn" class="durability-btn"><span>⚡</span> 내구도 시뮬레이션 (동영상)</button>
+                    </div>
+                    
+                    <div class="report-size-control">
+                        <button class="rs-btn" id="rs-btn-s" onclick="renderS()">Size S</button>
+                        <button class="rs-btn" id="rs-btn-m" onclick="renderM()">Size M</button>
+                        <button class="rs-btn" id="rs-btn-l" onclick="renderL()">Size L</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view3d-modal" class="modal hidden" style="z-index:3000;">
+        <div class="view3d-popup">
+            <button class="close-3d-btn" onclick="closeView3D()">&times;</button>
+            <model-viewer id="viewer-3d" src="" camera-controls auto-rotate shadow-intensity="1" style="width: 100%; height: 100%;"></model-viewer>
+            <div class="view3d-controls">
+                <button class="control-btn" onclick="switchModel('S')">Size S</button>
+                <button class="control-btn" onclick="switchModel('M')">Size M</button>
+                <button class="control-btn" onclick="switchModel('L')">Size L</button>
+                <button class="control-btn" id="btn-3d-repair" onclick="switchModel('Repair')">L (수선됨)</button>
+            </div>
+            <div class="view3d-overlay">🖱️ 마우스로 돌려서 360도 확인</div>
+        </div>
+    </div>
+
+    <div id="durability-modal" class="modal hidden" style="z-index:2000;">
+        <div class="durability-popup">
+            <button onclick="closeDuraModal()" style="position:absolute; top:20px; right:20px; border:none; background:none; font-size:30px; cursor:pointer;">&times;</button>
+            <h3 id="dura-title" style="font-size:24px; margin-bottom:10px;">내구도 스트레스 테스트</h3>
+            <p id="dura-desc" style="color:#666; font-size:16px;">실제 동작 환경에서 원단 스트레스를 시뮬레이션합니다.</p>
+            
+            <div id="dura-options" class="durability-options">
+                <button class="action-btn" onclick="runSim('walk')"><span class="action-icon">🚶</span><span>걷기 (10km)</span></button>
+                <button class="action-btn" onclick="runSim('run')"><span class="action-icon">🏃</span><span>달리기 (5km)</span></button>
+                <button class="action-btn" onclick="runSim('wash')"><span class="action-icon">🧺</span><span>세탁 (10회)</span></button>
+            </div>
+
+            <div id="dura-sim-area" class="sim-split-container">
+                <div class="sim-video-box">
+                    <span class="sim-label">Real Simulation</span>
+                    <img id="sim-gif-left" src="" alt="Simulation">
+                </div>
+                <div class="sim-video-box">
+                    <span class="sim-label">Heatmap Analysis</span>
+                    <img id="sim-gif-right" src="" alt="Simulation Heatmap">
+                </div>
+            </div>
+
+            <div id="dura-result-area" style="display:none; margin-top:20px; height:100%; display:flex; flex-direction:column;">
+                <p style="color:#d32f2f; font-weight:bold; margin-bottom:10px; font-size:20px;">⚠️ 테스트 결과: 원단 변형 감지됨</p>
+                <div class="comparison-view">
+                    <div class="comp-box"><div class="comp-label">Before</div>
+                        <img id="comp-img-before" class="comp-img" src="">
+                    </div>
+                    <div class="comp-box"><div class="comp-label">After (손상 후)</div>
+                        <img id="comp-img-after" class="comp-img" src="">
+                    </div>
+                </div>
+                <button onclick="closeDuraModal()" style="margin-top:20px; padding:15px 40px; background:#333; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; font-size:16px; align-self:center;">확인 완료</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // ============================================================
+            // [파일명 설정] ★ 대소문자 확인 필수 (.jpg / .JPG) ★
+            // ============================================================
+            const IMG_MAIN = "main.jpg"; 
+            
+            const IMG_S_REAL = "avatar_s_real.jpg"; const IMG_S_HEAT = "avatar_s_heat.jpg";
+            const IMG_M_REAL = "avatar_m_real.jpg"; const IMG_M_HEAT = "avatar_m_heat.jpg";
+            
+            // 기존 폴더에 있던 L 히트맵 파일명 확인 (대문자 .JPG)
+            const IMG_L_REAL = "avatar_l_real.jpg"; const IMG_L_HEAT = "avatar_l_heat.JPG"; 
+            
+            const IMG_REPAIR_REAL = "avatar_repair_real.jpg"; const IMG_REPAIR_HEAT = "avatar_repair_heat.jpg"; 
+            const IMG_DAMAGE_KNEE = "damage_knee.jpg"; const IMG_DAMAGE_SHRUNK = "damage_shrunk.jpg"; 
+            const IMG_BEFORE_SIM = "before_sim.jpg";
+
+            // ★ GIF 파일명 ★
+            const GIF_WALK = "walk.gif"; 
+            const GIF_RUN = "run.gif";   
+            const GIF_WASH = "wash.gif"; 
+
+            const GIF_WALK_HEAT = "walk_heat.gif"; 
+            const GIF_RUN_HEAT = "run_heat.gif";   
+            const GIF_WASH_HEAT = "wash_heat.gif"; 
+
+            const MODEL_S = "model_s.glb"; 
+            const MODEL_M = "model_m.glb"; 
+            const MODEL_L = "model_l.glb"; 
+            const MODEL_REPAIR = "model_repair.glb"; // 수선된 모델
+            // ============================================================
+
+            const mainImage = document.getElementById('main-image');
+            const realImg = document.getElementById('avatar-real-img');
+            const heatImg = document.getElementById('avatar-heat-img');
+            const compBefore = document.getElementById('comp-img-before');
+            const compAfter = document.getElementById('comp-img-after');
+            const modal = document.getElementById('result-modal');
+            const duraModal = document.getElementById('durability-modal');
+            const view3dModal = document.getElementById('view3d-modal');
+            const sizeBtns = document.querySelectorAll('.size-btn');
+            const viewer3d = document.getElementById('viewer-3d');
+            
+            let currentSize = 'M';
+            let isRepaired = false; // 수선 여부 상태
+
+            mainImage.src = IMG_MAIN;
+
+            // 메인 사이즈 선택
+            sizeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    sizeBtns.forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    currentSize = btn.dataset.size;
+                    isRepaired = false;
+                });
+            });
+
+            // 분석 시작
+            document.getElementById('prewear-btn').addEventListener('click', () => {
+                document.getElementById('scan-overlay').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('scan-overlay').classList.add('hidden');
+                    if(currentSize === 'S') renderS();
+                    else if(currentSize === 'M') renderM();
+                    else renderL();
+                    modal.classList.remove('hidden');
+                }, 1500);
+            });
+
+            // 수선 미리보기 (L사이즈 전용)
+            document.getElementById('repair-preview-btn').addEventListener('click', () => {
+                realImg.src = IMG_REPAIR_REAL;
+                heatImg.src = IMG_REPAIR_HEAT;
+                isRepaired = true;
+                
+                // 수선 후 완벽해진 상태로 업데이트
+                document.querySelector('.score-box').className = "score-box success";
+                document.getElementById('score-num').textContent = "98점"; 
+                document.getElementById('score-badge').textContent = "완벽 (Perfect)";
+                document.getElementById('score-comment').textContent = `"수선이 적용되어 기장과 핏이 모두 완벽합니다. 맞춤옷 같은 착용감을 느낄 수 있습니다."`;
+                document.getElementById('guide-box').innerHTML = "<p>✅ <strong>수선 적용 완료:</strong> 기장 3cm 수선이 가상으로 적용되었습니다.</p>";
+
+                const btn = document.getElementById('repair-preview-btn');
+                btn.innerHTML = "🛒 수선 옵션 담기 완료";
+                btn.style.background = "#333";
+                alert("수선된 핏이 적용되었습니다. 3D 뷰어에서 확인하세요!");
+            });
+
+            // 3D 뷰어 오픈
+            document.getElementById('click-3d-trigger').addEventListener('click', () => {
+                // 초기 모델 로드
+                if(isRepaired && currentSize === 'L') {
+                    viewer3d.src = MODEL_REPAIR;
+                    update3DButtons('Repair');
+                } else if(currentSize === 'S') {
+                    viewer3d.src = MODEL_S;
+                    update3DButtons('S');
+                } else if(currentSize === 'M') {
+                    viewer3d.src = MODEL_M;
+                    update3DButtons('M');
+                } else {
+                    viewer3d.src = MODEL_L;
+                    update3DButtons('L');
+                }
+                
+                // 수선 버튼 표시 여부 결정
+                if(isRepaired) {
+                    document.getElementById('btn-3d-repair').style.display = 'inline-block';
+                } else {
+                    document.getElementById('btn-3d-repair').style.display = 'none';
+                }
+
+                view3dModal.classList.remove('hidden');
+            });
+
+            // 3D 뷰어 내 모델 변경
+            window.switchModel = function(size) {
+                if(size === 'S') viewer3d.src = MODEL_S;
+                if(size === 'M') viewer3d.src = MODEL_M;
+                if(size === 'L') viewer3d.src = MODEL_L;
+                if(size === 'Repair') viewer3d.src = MODEL_REPAIR;
+                update3DButtons(size);
+            };
+
+            function update3DButtons(activeSize) {
+                document.querySelectorAll('.control-btn').forEach(btn => {
+                    // 버튼 텍스트에 사이즈가 포함되어 있거나, Repair인 경우 매칭
+                    if(btn.textContent.includes(activeSize) || (activeSize === 'Repair' && btn.id === 'btn-3d-repair')) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            window.closeView3D = function() {
+                view3dModal.classList.add('hidden');
+            };
+
+            document.getElementById('durability-test-btn').addEventListener('click', () => {
+                document.getElementById('dura-options').style.display = 'flex';
+                document.getElementById('dura-sim-area').style.display = 'none';
+                document.getElementById('dura-result-area').style.display = 'none';
+                duraModal.classList.remove('hidden');
+            });
+
+            window.runSim = function(type) {
+                document.getElementById('dura-options').style.display = 'none';
+                document.getElementById('dura-sim-area').style.display = 'flex';
+                document.getElementById('dura-result-area').style.display = 'none';
+                
+                const gifLeft = document.getElementById('sim-gif-left');
+                const gifRight = document.getElementById('sim-gif-right');
+                
+                let gifSrcLeft = GIF_WALK;
+                let gifSrcRight = GIF_WALK_HEAT; 
+
+                if(type === 'run') {
+                    gifSrcLeft = GIF_RUN;
+                    gifSrcRight = GIF_RUN_HEAT;
+                }
+                if(type === 'wash') {
+                    gifSrcLeft = GIF_WASH;
+                    gifSrcRight = GIF_WASH_HEAT;
+                }
+
+                gifLeft.src = gifSrcLeft;
+                gifRight.src = gifSrcRight;
+
+                setTimeout(() => {
+                    document.getElementById('dura-sim-area').style.display = 'none';
+                    document.getElementById('dura-result-area').style.display = 'flex';
+                    
+                    compBefore.src = IMG_BEFORE_SIM; 
+                    if(type === 'wash') compAfter.src = IMG_DAMAGE_SHRUNK;
+                    else compAfter.src = IMG_DAMAGE_KNEE;
+                }, 4000);
+            };
+
+            document.querySelectorAll('.close-btn').forEach(btn => {
+                btn.addEventListener('click', () => modal.classList.add('hidden'));
+            });
+            window.closeDuraModal = function() { 
+                duraModal.classList.add('hidden'); 
+            };
+
+            // ★ 리포트 렌더링 (텍스트 상세 복구 & 수선 로직 변경) ★
+            window.renderS = function() {
+                realImg.src = IMG_S_REAL; heatImg.src = IMG_S_HEAT;
+                currentSize = 'S'; isRepaired = false; // 초기화
+                updateReportButtons('S');
+
+                document.querySelector('.score-box').className = "score-box critical";
+                document.getElementById('score-num').textContent = "45점"; 
+                document.getElementById('score-badge').textContent = "위험 ⛔";
+                document.getElementById('score-comment').textContent = `"착용이 불가능할 정도로 작습니다. 억지로 착용 시 혈액순환 장애 및 의류 파손이 즉시 발생할 수 있습니다."`;
+
+                document.getElementById('detail-list').innerHTML = `
+                    <li class="critical"><span class="part-name">🛑 허벅지 (Critical)</span><span class="part-val">피부 압력 32.5 kPa (통증 유발)</span></li>
+                    <li class="critical"><span class="part-name">🛑 허리 (Impossible)</span><span class="part-val">잠김 불가 (-5cm 부족)</span></li>
+                `;
+                document.getElementById('guide-box').className = "guide-box";
+                document.getElementById('guide-box').innerHTML = `<p>🚫 <strong>수선 불가:</strong> 시접 여분이 전혀 없어 늘릴 수 없습니다. 한 치수 큰 사이즈를 권장합니다.</p>`;
+                
+                document.getElementById('repair-preview-btn').style.display = 'none';
+                
+                document.getElementById('durability-count').innerHTML = `예상 착용 횟수: <strong>5회 미만</strong>`;
+                document.getElementById('durability-box').className = "critical-box";
+                document.getElementById('durability-box').innerHTML = `🚫 <strong>즉시 파손 위험:</strong> "착용 시도만으로도 엉덩이 봉제선이 터질 확률 99%입니다."`;
+            }
+
+            window.renderM = function() {
+                realImg.src = IMG_M_REAL; heatImg.src = IMG_M_HEAT;
+                currentSize = 'M'; isRepaired = false; // 초기화
+                updateReportButtons('M');
+
+                document.querySelector('.score-box').className = "score-box warning";
+                document.getElementById('score-num').textContent = "78점"; 
+                document.getElementById('score-badge').textContent = "주의 ⚠️";
+                document.getElementById('score-comment').textContent = `"허벅지와 엉덩이가 타이트합니다. 장시간 착용 시 불편할 수 있으며, 앉을 때 강한 압박감이 예상됩니다."`;
+
+                document.getElementById('detail-list').innerHTML = `
+                    <li class="red"><span class="part-name">🔴 허벅지 (Tight)</span><span class="part-val">피부 압력 15.2 kPa</span><p class="part-desc">"원단이 한계치까지 늘어나 있습니다."</p></li>
+                    <li class="green"><span class="part-name">🟢 허리 (Good)</span><span class="part-val">여유 공간 +10mm (적당함)</span></li>
+                `;
+                document.getElementById('guide-box').className = "guide-box";
+                document.getElementById('guide-box').innerHTML = `<p>⚠️ <strong>수선 비권장:</strong> 작아서 늘리는 수선은 원단 손상을 초래합니다. L 사이즈로 교환을 추천합니다.</p>`;
+                
+                document.getElementById('repair-preview-btn').style.display = 'none';
+                
+                document.getElementById('durability-count').innerHTML = `예상 착용 횟수: <strong>약 45회</strong>`;
+                document.getElementById('durability-box').className = "warning-box";
+                document.getElementById('durability-box').innerHTML = `🚫 <strong>취약점 경고:</strong> "3개월 내 엉덩이 부분 마모 및 무릎 늘어남(Bagging) 현상 예상."`;
+            }
+            
+            window.renderL = function() {
+                realImg.src = IMG_L_REAL; heatImg.src = IMG_L_HEAT;
+                currentSize = 'L'; isRepaired = false; // 초기화
+                updateReportButtons('L');
+
+                document.querySelector('.score-box').className = "score-box success"; 
+                document.getElementById('score-num').textContent = "89점"; 
+                document.getElementById('score-badge').textContent = "양호 (기장 김)";
+                document.getElementById('score-comment').textContent = `"전체적으로 여유 있고 편안한 핏이나, 기장이 약간 길어 바닥에 끌릴 수 있습니다."`;
+
+                document.getElementById('detail-list').innerHTML = `
+                    <li class="green"><span class="part-name">🟢 전체 핏 (Comfort)</span><span class="part-val">피부 압력 3.5 kPa (쾌적)</span></li>
+                    <li class="red"><span class="part-name">🔴 기장 (Long)</span><span class="part-val">+3cm (김)</span></li>
+                `;
+                document.getElementById('guide-box').className = "guide-box";
+                document.getElementById('guide-box').innerHTML = `<p>✂️ <strong>수선 추천:</strong> 기장을 3cm 줄이면 완벽한 핏이 됩니다.</p><div class="ai-recommendation">💡 <strong>AI 의견:</strong> "기장 수선 후 착용을 강력 권장합니다."</div>`;
+                
+                document.getElementById('repair-preview-btn').style.display = 'flex';
+                document.getElementById('repair-preview-btn').innerHTML = "<span>✂️</span> 3cm 기장 수선 미리보기";
+                document.getElementById('repair-preview-btn').style.background = "#7c3aed";
+
+                document.getElementById('durability-count').innerHTML = `예상 착용 횟수: <strong>150회 이상</strong> (Grade S)`;
+                document.getElementById('durability-box').className = "safe-box";
+                document.getElementById('durability-box').innerHTML = `✅ <strong>내구도 안전:</strong> "원단에 무리가 가지 않는 핏입니다. 1년 이상 변형 없을 것으로 예측됩니다."`;
+            }
+
+            function updateReportButtons(size) {
+                document.querySelectorAll('.rs-btn').forEach(btn => btn.classList.remove('active'));
+                document.getElementById('rs-btn-' + size.toLowerCase()).classList.add('active');
+            }
+        });
+    </script>
+</body>
+</html>
